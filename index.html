@@ -1,231 +1,26 @@
-/*
-  3x3のマルバツゲーム（プレイヤー vs CPU）
-  - プレイヤー: O
-  - CPU: X
-  - CPUはミニマックス法で最適手を選択
-*/
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>マルバツゲーム（プレイヤー vs CPU）</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="container">
+      <h1>マルバツゲーム</h1>
+      <p class="subtitle">プレイヤー（X） vs CPU（O）</p>
 
-// ========= 基本設定 =========
-const PLAYER = "O";
-const CPU = "X";
-const EMPTY = "";
+      <!-- ゲームの状態メッセージを表示する領域 -->
+      <p id="status" class="status">あなたの手番です（X）</p>
 
-// 勝利パターン（インデックスの組み合わせ）
-const WIN_PATTERNS = [
-  [0, 1, 2],
-  [3, 4, 5],
-  [6, 7, 8],
-  [0, 3, 6],
-  [1, 4, 7],
-  [2, 5, 8],
-  [0, 4, 8],
-  [2, 4, 6],
-];
+      <!-- 3×3の盤面。JavaScriptで9マスを生成する -->
+      <section id="board" class="board" aria-label="3x3のゲーム盤"></section>
 
-// ========= DOM取得 =========
-const cells = Array.from(document.querySelectorAll(".cell"));
-const statusText = document.getElementById("statusText");
-const resetButton = document.getElementById("resetButton");
+      <!-- ゲームを最初からやり直すボタン -->
+      <button id="resetButton" class="reset-button" type="button">リセット</button>
+    </main>
 
-// ========= ゲーム状態 =========
-let board = Array(9).fill(EMPTY); // 9マスの状態
-let gameOver = false; // 勝敗が決まったかどうか
-
-// ========= 初期化 =========
-function initGame() {
-  board = Array(9).fill(EMPTY);
-  gameOver = false;
-  statusText.textContent = "あなたの番です（〇）";
-
-  cells.forEach((cell) => {
-    cell.textContent = "";
-    cell.disabled = false;
-    cell.classList.remove("player", "cpu");
-  });
-}
-
-// ========= 盤面表示更新 =========
-function renderBoard() {
-  cells.forEach((cell, index) => {
-    cell.textContent = board[index];
-    cell.classList.remove("player", "cpu");
-
-    if (board[index] === PLAYER) {
-      cell.classList.add("player");
-    } else if (board[index] === CPU) {
-      cell.classList.add("cpu");
-    }
-
-    // 既に埋まっているマス、またはゲーム終了後はクリック不可
-    cell.disabled = gameOver || board[index] !== EMPTY;
-  });
-}
-
-// ========= 勝者判定 =========
-// 指定された盤面で、勝者がいればその記号（O / X）を返す。
-// いなければ null を返す。
-function getWinner(currentBoard) {
-  for (const [a, b, c] of WIN_PATTERNS) {
-    if (
-      currentBoard[a] !== EMPTY &&
-      currentBoard[a] === currentBoard[b] &&
-      currentBoard[b] === currentBoard[c]
-    ) {
-      return currentBoard[a];
-    }
-  }
-  return null;
-}
-
-// ========= 引き分け判定 =========
-function isDraw(currentBoard) {
-  return currentBoard.every((cell) => cell !== EMPTY) && !getWinner(currentBoard);
-}
-
-// ========= ゲーム結果の反映 =========
-function checkGameState() {
-  const winner = getWinner(board);
-
-  if (winner === PLAYER) {
-    gameOver = true;
-    statusText.textContent = "あなたの勝ちです！";
-    renderBoard();
-    return true;
-  }
-
-  if (winner === CPU) {
-    gameOver = true;
-    statusText.textContent = "CPUの勝ちです。";
-    renderBoard();
-    return true;
-  }
-
-  if (isDraw(board)) {
-    gameOver = true;
-    statusText.textContent = "引き分けです。";
-    renderBoard();
-    return true;
-  }
-
-  return false;
-}
-
-// ========= ミニマックス法 =========
-/*
-  minimaxの評価ルール
-  - CPUが勝つ: +1
-  - プレイヤーが勝つ: -1
-  - 引き分け: 0
-
-  isMaximizing が true なら CPU の手番（最大化）
-  isMaximizing が false なら プレイヤーの手番（最小化）
-*/
-function minimax(currentBoard, isMaximizing) {
-  const winner = getWinner(currentBoard);
-
-  if (winner === CPU) return 1;
-  if (winner === PLAYER) return -1;
-  if (isDraw(currentBoard)) return 0;
-
-  if (isMaximizing) {
-    // CPUはスコアを最大化したい
-    let bestScore = -Infinity;
-
-    for (let i = 0; i < currentBoard.length; i++) {
-      if (currentBoard[i] === EMPTY) {
-        currentBoard[i] = CPU;
-        const score = minimax(currentBoard, false);
-        currentBoard[i] = EMPTY;
-        bestScore = Math.max(bestScore, score);
-      }
-    }
-
-    return bestScore;
-  }
-
-  // プレイヤーはCPUにとって最悪の手を選ぶ（スコア最小化）
-  let bestScore = Infinity;
-
-  for (let i = 0; i < currentBoard.length; i++) {
-    if (currentBoard[i] === EMPTY) {
-      currentBoard[i] = PLAYER;
-      const score = minimax(currentBoard, true);
-      currentBoard[i] = EMPTY;
-      bestScore = Math.min(bestScore, score);
-    }
-  }
-
-  return bestScore;
-}
-
-// CPUが打つ最適手を探す
-function getBestMove() {
-  let bestScore = -Infinity;
-  let move = -1;
-
-  for (let i = 0; i < board.length; i++) {
-    if (board[i] === EMPTY) {
-      board[i] = CPU;
-      const score = minimax(board, false);
-      board[i] = EMPTY;
-
-      if (score > bestScore) {
-        bestScore = score;
-        move = i;
-      }
-    }
-  }
-
-  return move;
-}
-
-// ========= CPUの手番処理 =========
-function cpuTurn() {
-  if (gameOver) return;
-
-  statusText.textContent = "CPUが考えています...";
-
-  // ほんの少し待ってから打つと、動きが分かりやすくなる
-  setTimeout(() => {
-    const bestMove = getBestMove();
-
-    if (bestMove !== -1) {
-      board[bestMove] = CPU;
-      renderBoard();
-    }
-
-    if (!checkGameState()) {
-      statusText.textContent = "あなたの番です（〇）";
-    }
-  }, 250);
-}
-
-// ========= プレイヤーのクリック処理 =========
-function handleCellClick(event) {
-  const index = Number(event.currentTarget.dataset.index);
-
-  // 不正なクリックを防止
-  if (gameOver || board[index] !== EMPTY) {
-    return;
-  }
-
-  board[index] = PLAYER;
-  renderBoard();
-
-  // プレイヤーの手でゲーム終了していればCPUは打たない
-  if (checkGameState()) {
-    return;
-  }
-
-  cpuTurn();
-}
-
-// ========= イベント登録 =========
-cells.forEach((cell) => {
-  cell.addEventListener("click", handleCellClick);
-});
-
-resetButton.addEventListener("click", initGame);
-
-// 初回表示
-initGame();
+    <script src="script.js"></script>
+  </body>
+</html>
